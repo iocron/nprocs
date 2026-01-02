@@ -8,10 +8,18 @@
 
 ## Installation
 
-1. One-liner installation: `mkdir -p ~/.local/bin && curl -fsSL https://raw.githubusercontent.com/username/nprocs/main/nprocs -o ~/.local/bin/nprocs && chmod +x ~/.local/bin/nprocs && export PATH="$HOME/.local/bin:$PATH" && echo 'Installation complete! Run nprocs to start.'`
+1. One-liner installation:
+   ```bash
+   mkdir -p ~/.local/bin && \
+   curl -fsSL https://raw.githubusercontent.com/iocron/nprocs/main/nprocs -o ~/.local/bin/nprocs && \
+   chmod +x ~/.local/bin/nprocs && \
+   export PATH="$HOME/.local/bin:$PATH" && \
+   echo "Installation complete! Run 'nprocs' to start."
 
-2. Add to your shell profile if .local/bin is not already in your PATH:
-`export PATH="$HOME/.local/bin:$PATH"`
+2. Make sure .local/bin is in your shellprofile (~/.bashprofile or ~/.zshrc):
+   ```bash
+   export PATH="$HOME/.local/bin:$PATH"
+   ```
 
 ---
 
