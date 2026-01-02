@@ -1,9 +1,17 @@
 # nprocs — Portable Network Process Viewer
 
-**Nprocs** is a lightweight, portable shell tool that displays **active network connections grouped by process** in a clean, human-readable table.  
-It works on **macOS and Linux**, using only standard UNIX tools and a POSIX-compatible shell.
+**Nprocs** is a lightweight, portable shell tool that displays **active network connections grouped by process** in a clean, human-readable table. It works on **macOS and Linux**, using only standard UNIX tools and a POSIX-compatible shell.
 
 ![Preview](img/preview.jpg)
+
+---
+
+## Installation
+
+1. One-liner installation: `mkdir -p ~/.local/bin && curl -fsSL https://raw.githubusercontent.com/username/nprocs/main/nprocs -o ~/.local/bin/nprocs && chmod +x ~/.local/bin/nprocs && export PATH="$HOME/.local/bin:$PATH" && echo 'Installation complete! Run nprocs to start.'`
+
+2. Add to your shell profile if .local/bin is not already in your PATH:
+`export PATH="$HOME/.local/bin:$PATH"`
 
 ---
 
