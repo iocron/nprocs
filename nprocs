@@ -1,13 +1,21 @@
-#!/bin/bash
-
+#!/bin/sh
+touch /tmp/tmp_nprocs.txt
 lsof -i -P -n | awk '
-NR>1 {
+NR > 1 && $2 ~ /^[0-9]+$/ {
     pid = $2
     fd  = $4
     type = $5
     name = $9
-    state = $10
+    for (i=10; i<=NF; i++) name = name " " $i
 
+    # Extract state in parentheses at end
+    state = ""
+    if (match(name, "\\([^)]+\\)$")) {
+        state = substr(name, RSTART+1, RLENGTH-2)
+        name = substr(name, 1, RSTART-1)
+    }
+
+    # Split into local and remote if "->" exists
     local = name
     remote = ""
     if (index(name, "->") > 0) {
@@ -16,11 +24,12 @@ NR>1 {
         remote = a[2]
     }
 
-    if (!(pid in cmd)) {
-        "ps -p " pid " -o args=" | getline cmd[pid]
+    if (pid ~ /^[0-9]+$/ && !(pid in cmd)) {
+        cmdline = "ps -p " pid " -o args="
+        cmdline | getline cmd[pid]
+        close(cmdline)
     }
 
-    # Change order in printf: FD, TYPE, STATE, LOCAL, REMOTE
     entry[pid] = entry[pid] sprintf("  %-4s %-5s  %-12s %-25s %-25s\n", fd, type, state, local, remote)
 
     if (!(pid in seen)) {
@@ -30,7 +39,7 @@ NR>1 {
 }
 
 END {
-    tmp = "/tmp/lsof_pids_awk_sort.txt"
+    tmp = "/tmp/tmp_nprocs.txt"
     for (i = 1; i <= count; i++) print seen_pids[i] > tmp
     close(tmp)
 
