@@ -16,7 +16,7 @@
    export PATH="$HOME/.local/bin:$PATH" && \
    echo "Installation complete! Run 'nprocs' to start."
 
-2. Make sure .local/bin is in your shellprofile (~/.bashprofile or ~/.zshrc):
+2. Make sure .local/bin is in your shellprofile (~/.bash_profile or ~/.zshrc):
    ```bash
    export PATH="$HOME/.local/bin:$PATH"
    ```
