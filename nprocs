@@ -1,0 +1,47 @@
+#!/bin/bash
+
+lsof -i -P -n | awk '
+NR>1 {
+    pid = $2
+    fd  = $4
+    type = $5
+    name = $9
+    state = $10
+
+    local = name
+    remote = ""
+    if (index(name, "->") > 0) {
+        split(name, a, "->")
+        local = a[1]
+        remote = a[2]
+    }
+
+    if (!(pid in cmd)) {
+        "ps -p " pid " -o args=" | getline cmd[pid]
+    }
+
+    # Change order in printf: FD, TYPE, STATE, LOCAL, REMOTE
+    entry[pid] = entry[pid] sprintf("  %-4s %-5s  %-12s %-25s %-25s\n", fd, type, state, local, remote)
+
+    if (!(pid in seen)) {
+        seen_pids[++count] = pid
+        seen[pid] = 1
+    }
+}
+
+END {
+    tmp = "/tmp/lsof_pids_awk_sort.txt"
+    for (i = 1; i <= count; i++) print seen_pids[i] > tmp
+    close(tmp)
+
+    cmd_sort = "sort -n " tmp
+    while ((cmd_sort | getline pid_sorted) > 0) {
+        print "PID", pid_sorted, cmd[pid_sorted]
+        print "  FD   TYPE   STATE        LOCAL                     REMOTE"
+        printf "%s", entry[pid_sorted]
+        print ""
+    }
+    close(cmd_sort)
+}
+'
+
