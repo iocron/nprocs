@@ -1,6 +1,13 @@
 #!/bin/sh
 touch /tmp/tmp_nprocs.txt
 lsof -i -P -n | awk '
+function getport(addr,   n, arr, p) {
+    n = split(addr, arr, ":")
+    p = arr[n]
+    gsub(/[ \t]+/, "", p)
+    return p
+}
+
 NR > 1 && $2 ~ /^[0-9]+$/ {
     pid = $2
     fd  = $4
@@ -24,13 +31,22 @@ NR > 1 && $2 ~ /^[0-9]+$/ {
         remote = a[2]
     }
 
+    # Track ports we listen on, so direction can be inferred in END
+    if (state == "LISTEN") listenport[getport(local)] = 1
+
     if (pid ~ /^[0-9]+$/ && !(pid in cmd)) {
         cmdline = "ps -p " pid " -o args="
         cmdline | getline cmd[pid]
         close(cmdline)
     }
 
-    entry[pid] = entry[pid] sprintf("  %-4s %-5s  %-12s %-25s %-25s\n", fd, type, state, local, remote)
+    k = ++nrec
+    rec_pid[k]    = pid
+    rec_fd[k]     = fd
+    rec_type[k]   = type
+    rec_state[k]  = state
+    rec_local[k]  = local
+    rec_remote[k] = remote
 
     if (!(pid in seen)) {
         seen_pids[++count] = pid
@@ -39,6 +55,17 @@ NR > 1 && $2 ~ /^[0-9]+$/ {
 }
 
 END {
+    for (k = 1; k <= nrec; k++) {
+        pid = rec_pid[k]
+        if (rec_state[k] == "LISTEN")            icon = "\342\227\213"  # ○ listen
+        else if (rec_remote[k] == "")            icon = " "
+        else if (getport(rec_local[k]) in listenport) icon = "\342\206\220"  # ← inbound
+        else                                     icon = "\342\206\222"  # → outbound
+
+        entry[pid] = entry[pid] sprintf("  %-4s %-5s  %s %-12s %-25s %-25s\n", \
+            rec_fd[k], rec_type[k], icon, rec_state[k], rec_local[k], rec_remote[k])
+    }
+
     tmp = "/tmp/tmp_nprocs.txt"
     for (i = 1; i <= count; i++) print seen_pids[i] > tmp
     close(tmp)
@@ -46,11 +73,10 @@ END {
     cmd_sort = "sort -n " tmp
     while ((cmd_sort | getline pid_sorted) > 0) {
         print "PID", pid_sorted, cmd[pid_sorted]
-        print "  FD   TYPE   STATE        LOCAL                     REMOTE"
+        print "  FD   TYPE     STATE        LOCAL                     REMOTE"
         printf "%s", entry[pid_sorted]
         print ""
     }
     close(cmd_sort)
 }
 '
-
