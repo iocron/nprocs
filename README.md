@@ -39,6 +39,7 @@
   - Connection state (LISTEN, ESTABLISHED, etc.)
   - Local and remote endpoints
 - Shows the full command line of each process
+- Names the launchd job (macOS) or systemd socket unit (Linux) behind sockets held by PID 1 (`⤷ label` in the REMOTE column)
 - Works with default `awk` (BSD and GNU)
 - `/bin/sh` compatible (no Bash required)
 
@@ -47,6 +48,10 @@
 ## Example Output
 
 ```text
+PID 1 /sbin/launchd
+  FD   TYPE   STATE        LOCAL                     REMOTE
+  40u  IPv4   LISTEN       127.0.0.1:8021            ⤷ com.apple.ftp-proxy
+
 PID 37662 /usr/bin/myapp
   FD   TYPE   STATE        LOCAL                     REMOTE
   4u   IPv4   LISTEN       127.0.0.1:61606           123.123.123.123

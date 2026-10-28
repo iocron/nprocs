@@ -3,12 +3,41 @@ command -v lsof >/dev/null 2>&1 || { echo "ERROR: lsof not found (Debian/Ubuntu:
 # Linux lsof only sees sockets of the calling user unless run as root
 [ "$(id -u)" -eq 0 ] || printf 'INFO: not running as root, only showing processes of %s (use sudo to see all)\n\n' "$(id -un)" >&2
 
-lsof -i -P -n | awk '
+lsof -i -P -n | awk -v os="$(uname -s)" '
 function getport(addr,   n, arr, p) {
     n = split(addr, arr, ":")
     p = arr[n]
     gsub(/[ \t]+/, "", p)
     return p
+}
+
+# launchd lists the fds it holds per job, and they match lsof FD numbers for PID 1
+function load_launchd(   cmd, line, job, inner, f) {
+    cmd = "launchctl dumpstate 2>/dev/null"
+    while ((cmd | getline line) > 0) {
+        if (line ~ /^[^ \t].* = [{]$/) {
+            job = line
+            sub(/ = [{]$/, "", job)
+            sub(/^[a-z]+\/([0-9]+\/)?/, "", job)
+        } else if (line ~ /^\t\t\tsockets = [{]$/) inner = 1
+        else if (line ~ /^\t\t\t[}]$/) inner = 0
+        else if (inner) {
+            split(line, f, " ")
+            if (f[1] ~ /^[0-9]+$/) owner["fd:" f[1]] = job
+        }
+    }
+    close(cmd)
+}
+
+# systemd prints no fds, so match by protocol and port
+function load_systemd(   cmd, line, f) {
+    cmd = "systemctl list-sockets --all --no-legend --full --show-types 2>/dev/null"
+    while ((cmd | getline line) > 0) {
+        split(line, f, " ")
+        if (f[2] == "Stream") owner["TCP:" getport(f[1])] = f[3]
+        else if (f[2] == "Datagram") owner["UDP:" getport(f[1])] = f[3]
+    }
+    close(cmd)
 }
 
 NR > 1 && $2 ~ /^[0-9]+$/ {
@@ -46,6 +75,7 @@ NR > 1 && $2 ~ /^[0-9]+$/ {
     k = ++nrec
     rec_pid[k]    = pid
     rec_fd[k]     = fd
+    rec_proto[k]  = $8
     rec_type[k]   = type
     rec_state[k]  = state
     rec_local[k]  = local
@@ -63,15 +93,28 @@ END {
         exit
     }
 
+    if (1 in seen) {
+        if (os == "Darwin") load_launchd()
+        else if (os == "Linux") load_systemd()
+    }
+
     for (k = 1; k <= nrec; k++) {
         pid = rec_pid[k]
+        remote = rec_remote[k]
+        if (pid == 1 && remote == "") {
+            fdnum = rec_fd[k]
+            sub(/[^0-9]+$/, "", fdnum)
+            job = owner["fd:" fdnum]
+            if (job == "") job = owner[rec_proto[k] ":" getport(rec_local[k])]
+            if (job != "") remote = "\342\244\267 " job  # ⤷ socket-activation owner
+        }
         if (rec_state[k] == "LISTEN")            icon = "\342\227\213"  # ○ listen
         else if (rec_remote[k] == "")            icon = " "
         else if (getport(rec_local[k]) in listenport) icon = "\342\206\220"  # ← inbound
         else                                     icon = "\342\206\222"  # → outbound
 
         entry[pid] = entry[pid] sprintf("  %-4s %-5s  %s %-12s %-25s %-25s\n", \
-            rec_fd[k], rec_type[k], icon, rec_state[k], rec_local[k], rec_remote[k])
+            rec_fd[k], rec_type[k], icon, rec_state[k], rec_local[k], remote)
     }
 
     # Sort PIDs in awk, a shared temp file breaks across users (fs.protected_regular)
