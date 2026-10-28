@@ -1,5 +1,8 @@
 #!/bin/sh
-touch /tmp/tmp_nprocs.txt
+command -v lsof >/dev/null 2>&1 || { echo "ERROR: lsof not found (Debian/Ubuntu: sudo apt install lsof)" >&2; exit 1; }
+# Linux lsof only sees sockets of the calling user unless run as root
+[ "$(id -u)" -eq 0 ] || printf 'INFO: not running as root, only showing processes of %s (use sudo to see all)\n\n' "$(id -un)" >&2
+
 lsof -i -P -n | awk '
 function getport(addr,   n, arr, p) {
     n = split(addr, arr, ":")
@@ -55,6 +58,11 @@ NR > 1 && $2 ~ /^[0-9]+$/ {
 }
 
 END {
+    if (nrec == 0) {
+        print "No network connections found." > "/dev/stderr"
+        exit
+    }
+
     for (k = 1; k <= nrec; k++) {
         pid = rec_pid[k]
         if (rec_state[k] == "LISTEN")            icon = "\342\227\213"  # ○ listen
@@ -66,17 +74,19 @@ END {
             rec_fd[k], rec_type[k], icon, rec_state[k], rec_local[k], rec_remote[k])
     }
 
-    tmp = "/tmp/tmp_nprocs.txt"
-    for (i = 1; i <= count; i++) print seen_pids[i] > tmp
-    close(tmp)
+    # Sort PIDs in awk, a shared temp file breaks across users (fs.protected_regular)
+    for (i = 2; i <= count; i++) {
+        v = seen_pids[i]
+        for (j = i - 1; j >= 1 && seen_pids[j] + 0 > v + 0; j--) seen_pids[j+1] = seen_pids[j]
+        seen_pids[j+1] = v
+    }
 
-    cmd_sort = "sort -n " tmp
-    while ((cmd_sort | getline pid_sorted) > 0) {
-        print "PID", pid_sorted, cmd[pid_sorted]
+    for (i = 1; i <= count; i++) {
+        pid = seen_pids[i]
+        print "PID", pid, cmd[pid]
         print "  FD   TYPE     STATE        LOCAL                     REMOTE"
-        printf "%s", entry[pid_sorted]
+        printf "%s", entry[pid]
         print ""
     }
-    close(cmd_sort)
 }
 '

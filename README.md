@@ -6,6 +6,13 @@
 
 ---
 
+## Requirements
+
+- `lsof` must be installed. Many minimal Linux images do not ship it (Debian/Ubuntu: `sudo apt install lsof`).
+- Run with `sudo` to see the processes of all users. Without root, Linux only shows the sockets of the current user.
+
+---
+
 ## Installation
 
 1. One-liner installation:
